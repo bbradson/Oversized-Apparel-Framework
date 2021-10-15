@@ -12,13 +12,13 @@ Usage (for modders, not users):
   
 To change the size add a modExtension like this:  
 ```xml
-<Def>  
-	<modExtensions>  
-		<li Class="OversizedApparel.Extension">  
-			<drawSize>(x, y)</drawSize>  
-		</li>  
-	</modExtensions>  
-</Def>  
+<Def>
+	<modExtensions>
+		<li Class="OversizedApparel.Extension">
+			<drawSize>(x, y)</drawSize>
+		</li>
+	</modExtensions>
+</Def>
 ```
   
 x is a multiplier for the width, y applies on the height.  
@@ -31,16 +31,16 @@ without brackets and a single number results in both dimensions changing by the 
 ```
 would be the default.  
   
-To adjust offsets one or more of these to Def/graphicData:  
+To adjust offsets add one or more of these to Def/graphicData:  
 ```xml
-<drawOffset>(x,z,y)</drawOffset>  
-<drawOffsetNorth>(x,z,y)</drawOffsetNorth>  
-<drawOffsetEast>(x,z,y)</drawOffsetEast>  
-<drawOffsetSouth>(x,z,y)</drawOffsetSouth>  
-<drawOffsetWest>(x,z,y)</drawOffsetWest>  
+<drawOffset>(x,z,y)</drawOffset>
+<drawOffsetNorth>(x,z,y)</drawOffsetNorth>
+<drawOffsetEast>(x,z,y)</drawOffsetEast>
+<drawOffsetSouth>(x,z,y)</drawOffsetSouth>
+<drawOffsetWest>(x,z,y)</drawOffsetWest>
 ```
   
-x is the horizontal offset here, y is vertical, z is the distance to the camera, used for layers. An extension like for drawSize is not necessary here.  
+x is the horizontal offset here, y is vertical. Z is the distance to the camera, used for layers. An extension like for drawSize is not necessary here.  
   
 Credits:  
 Armor and pauldrons are expanded versions of Oskar Potocki's heavy plate armor and plate shoulderpads.  
