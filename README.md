@@ -1,6 +1,6 @@
 # Oversized Apparel Framework
 
-![](About/Preview.png?raw=true)
+![](About/Preview.png?raw=true)  
  Enables custom apparel sizes and offsets in Rimworld.  
 Vanilla Rimworld lacks this functionality. Preview shows an example of what's possible.  
   
@@ -11,6 +11,7 @@ Confirmed to be compatible with Enable Oversized Weapons and Humanoid Alien Race
 Usage (for modders, not users):  
   
 To change the size add a modExtension like this:  
+```xml
 <Def>  
 	<modExtensions>  
 		<li Class="OversizedApparel.Extension">  
@@ -18,17 +19,20 @@ To change the size add a modExtension like this:
 		</li>  
 	</modExtensions>  
 </Def>  
+```
   
 x is a multiplier for the width, y applies on the height.  
 <drawSize>#<drawSize> without brackets and a single number results in both dimensions changing by the same amount.  
 <drawSize>1.0</drawSize> would be the default.  
   
 To adjust offsets one or more of these ones to Def/graphicData:  
+```xml
 <drawOffset>(x,z,y)</drawOffset>  
 <drawOffsetNorth>(x,z,y)</drawOffsetNorth>  
 <drawOffsetEast>(x,z,y)</drawOffsetEast>  
 <drawOffsetSouth>(x,z,y)</drawOffsetSouth>  
 <drawOffsetWest>(x,z,y)</drawOffsetWest>  
+```
   
 x is the horizontal offset here, y is vertical, z is the distance to the camera, used for layers. An extension like for drawSize is not necessary here.  
   
