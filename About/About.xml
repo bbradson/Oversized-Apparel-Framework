@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+	<name>Oversized Apparel Framework</name>
+	<packageId>bs.oversizedapparel</packageId>
+	<supportedVersions>
+		<li>1.3</li>
+	</supportedVersions>
+	<author>bradson</author>
+	<url>https://github.com/bbradson/Oversized-Apparel-Framework</url>
+	<loadAfter>
+		<li>brrainz.harmony</li>
+		<li>me.samboycoding.betterloading</li>
+		<li>zetrith.prepatcher</li>
+	</loadAfter>
+	<description>Enables custom apparel sizes and offsets. Vanilla Rimworld lacks this functionality.</description>
+</ModMetaData>
