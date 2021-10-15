@@ -12,7 +12,7 @@ using static System.Reflection.Emit.OpCodes;
 
 namespace OversizedApparel;
 [StaticConstructorOnStartup]
-internal static class OversizedApparel
+public static class OversizedApparel
 {
 	static OversizedApparel()
 	{
