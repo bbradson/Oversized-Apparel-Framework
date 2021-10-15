@@ -22,8 +22,12 @@ To change the size add a modExtension like this:
 ```
   
 x is a multiplier for the width, y applies on the height.  
-<drawSize>#<drawSize> without brackets and a single number results in both dimensions changing by the same amount.  
-<drawSize>1.0</drawSize> would be the default.  
+```xml
+<drawSize>#<drawSize>
+``` without brackets and a single number results in both dimensions changing by the same amount.  
+```xml
+<drawSize>1.0</drawSize>
+``` would be the default.  
   
 To adjust offsets one or more of these to Def/graphicData:  
 ```xml
