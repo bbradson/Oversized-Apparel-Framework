@@ -6,7 +6,8 @@ Vanilla Rimworld lacks this functionality. Preview shows an example of what's po
   
 Compatibility and Performance:  
 Very good.  
-Confirmed to be compatible with Enable Oversized Weapons and Humanoid Alien Races.  
+Confirmed to be compatible with Enable Oversized Weapons, Humanoid Alien Races and the whole Vanilla Expanded collection.  
+Head gear changes currently not applying when Combat Extended is active.  
   
 Usage (for modders, not users):  
   
