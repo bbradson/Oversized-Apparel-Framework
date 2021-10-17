@@ -3,10 +3,11 @@
 ![](About/Preview.png?raw=true)  
  Enables custom apparel sizes and offsets in Rimworld.  
 Vanilla Rimworld lacks this functionality. Preview shows an example of what's possible.  
+Other possibilites this mod unlocks include ship girls and big ass mecha suits. One could also make fake vehicles or those hover boards from Wall-E with this.  
   
 Compatibility and Performance:  
 Very good.  
-Confirmed to be compatible with Enable Oversized Weapons and Humanoid Alien Races.  
+Confirmed to be compatible with Enable Oversized Weapons, Humanoid Alien Races, Vanilla Expanded and Combat Extended.  
   
 Usage (for modders, not users):  
   
