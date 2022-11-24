@@ -1,17 +1,26 @@
+// Copyright (c) 2022 bradson
+// This Source Code Form is subject to the terms of the MIT license.
+// If a copy of the license was not distributed with this file,
+// You can obtain one at https://opensource.org/licenses/MIT/.
+
 global using System;
 global using System.Collections.Generic;
+global using System.Linq;
 global using System.Reflection;
 global using System.Reflection.Emit;
 global using HarmonyLib;
 global using RimWorld;
 global using UnityEngine;
 global using Verse;
-global using System.Linq;
+global using static FisheryLib.Aliases;
 using System.Runtime.CompilerServices;
-using static System.Reflection.Emit.OpCodes;
-using static OversizedApparel.TranspilerHelpers;
+using FisheryLib;
+using Log = Verse.Log;
+using CodeInstructions = System.Collections.Generic.IEnumerable<HarmonyLib.CodeInstruction>;
+using System.Globalization;
 
 namespace OversizedApparel;
+
 [StaticConstructorOnStartup]
 public static class OversizedApparel
 {
@@ -19,171 +28,203 @@ public static class OversizedApparel
 	{
 		var vanillaExpandedDisableCachingEnabled = false;
 		if (Type.GetType("VFECore.VFEGlobal, VFECore")?.GetField("settings")?.GetValue(null) is { } vEFsettings)
-			vanillaExpandedDisableCachingEnabled = (bool)Type.GetType("VFECore.VFEGlobalSettings, VFECore")?.GetField("disableCaching")?.GetValue(vEFsettings);
+			vanillaExpandedDisableCachingEnabled = (bool)Type.GetType("VFECore.VFEGlobalSettings, VFECore")?.GetField("disableCaching")?.GetValue(vEFsettings)!;
 
 		if (!vanillaExpandedDisableCachingEnabled)
-			Harmony.Patch(AccessTools.Method(typeof(PawnRenderer), nameof(PawnRenderer.RenderPawnAt)), transpiler: new(typeof(OversizedApparel).GetMethod(nameof(PawnRenderer_RenderPawnAt_Transpiler))));
+		{
+			Harmony.Patch(
+				AccessTools.Method(typeof(PawnRenderer), nameof(PawnRenderer.RenderPawnAt)),
+				transpiler: new(methodof(PawnRenderer_RenderPawnAt_Transpiler)));
+		}
 
-		Harmony.Patch(AccessTools.FirstMethod(typeof(PawnRenderer), m => m.Name.Contains("DrawApparel") && m.HasAttribute<CompilerGeneratedAttribute>() && m.GetParameters().Any(p => p.ParameterType == typeof(ApparelGraphicRecord))),
-			transpiler: new(typeof(OversizedApparel).GetMethod(nameof(PawnRenderer_DrawHeadHair_DrawApparel_Transpiler)), Priority.Last));
+		Harmony.Patch(
+			AccessTools.FindIncludingInnerTypes(typeof(PawnRenderer), type
+				=> AccessTools.FirstMethod(type, m
+					=> m.Name.Contains("DrawHeadHair")
+					&& m.Name.Contains("DrawApparel")
+					//&& m.HasAttribute<CompilerGeneratedAttribute>()
+					&& m.GetParameters().Any(p => p.ParameterType == typeof(ApparelGraphicRecord)))),
+			transpiler: new(methodof(PawnRenderer_DrawHeadHair_DrawApparel_Transpiler), Priority.Last));
 
-		Harmony.Patch(AccessTools.Method(typeof(PawnRenderer), nameof(PawnRenderer.DrawBodyApparel)), transpiler: new(typeof(OversizedApparel).GetMethod(nameof(PawnRenderer_DrawBodyApparel_Transpiler)), Priority.Last));
+		Harmony.Patch(AccessTools.Method(typeof(PawnRenderer), nameof(PawnRenderer.DrawBodyApparel)), transpiler: new(methodof(PawnRenderer_DrawBodyApparel_Transpiler), Priority.Last));
 
-		//Combat Extended replaces the whole head apparel method, so here's another damn hat patch for their version
+		//Combat Extended replaces the whole head apparel method, so here's another hat patch for their version
 		if (Type.GetType("CombatExtended.HarmonyCE.Harmony_PawnRenderer, CombatExtended") is { } ceType)
-			Harmony.Patch(AccessTools.FindIncludingInnerTypes(ceType, t => AccessTools.Method(t, "DrawHeadApparel")), transpiler: new(typeof(OversizedApparel).GetMethod(nameof(CombatExtended_PawnRenderer_DrawHeadHair_DrawApparel_Transpiler)), Priority.Last));
-	}
-
-	public static IEnumerable<CodeInstruction> PawnRenderer_RenderPawnAt_Transpiler(IEnumerable<CodeInstruction> instructions, MethodBase original)
-	{
-		var codes = instructions.ToList();
-		var flag = FirstLdloc(original, typeof(bool));
-
-		for (var i = 0; i < codes.Count; i++)
 		{
-			if (codes[i].opcode == flag.OpCode && codes[i].operand == flag.Operand && codes[i + 1].operand is Label label)
-			{
-				yield return codes[i];
-				yield return codes[i + 1];
-				yield return new(Ldarg_0);
-				yield return new(Call, typeof(OversizedApparel).GetMethod(nameof(ShouldSkipCache)));
-				yield return new(Brtrue_S, label);
-				i++;
-			}
-			else
-			{
-				yield return codes[i];
-			}
+			Harmony.Patch(
+				AccessTools.FindIncludingInnerTypes(ceType, t => AccessTools.Method(t, "DrawHeadApparel")),
+				transpiler: new(methodof(CombatExtended_PawnRenderer_DrawHeadHair_DrawApparel_Transpiler), Priority.Last, debug: true));
 		}
 	}
 
-	public static IEnumerable<CodeInstruction> PawnRenderer_DrawHeadHair_DrawApparel_Transpiler(IEnumerable<CodeInstruction> instructions, MethodBase original)
+	public static CodeInstructions PawnRenderer_RenderPawnAt_Transpiler(CodeInstructions instructions, MethodBase original)
 	{
-		var codes = instructions.ToList();
-		var meshSuccess = false;
-		var offsetSuccess = false;
+		var flag = FishTranspiler.FirstLocalVariable(original, typeof(bool));
 
-		var compilerGenStructType = typeof(PawnRenderer).GetNestedTypes(AccessTools.all).Where(type => AccessTools.Field(type, "headFacing") is { } field
-			&& field.FieldType == typeof(Rot4) && type.HasAttribute<CompilerGeneratedAttribute>() && type.IsValueType).First();
+		return instructions
+			.ReplaceAt((codes, i)
+				=> i - 1 >= 0
+				&& CompareInstructions(codes[i - 1], flag)
+				&& codes[i].operand is Label,
+			code => new[]
+			{
+				code,
+				FishTranspiler.This,
+				FishTranspiler.Call(ShouldSkipCache),
+				FishTranspiler.IfTrue_Short((Label)code.operand)
+			},
+			false);
+	}
 
-		var apparelRecord = FirstLdarg(original, typeof(ApparelGraphicRecord));
-		var headFacing = AccessTools.Field(compilerGenStructType, "headFacing");
-		// p.ParameterType == compilerGenStructType returns null, so I have to be a bit less specific here. Though it would work with null too, just ends up being unsafe with pointer
-		var compilerGenArg = FirstLdarg(original, p => /*p.ParameterType == compilerGenStructType &&*/ p.ParameterType.IsByRef && p.Position != 0);
-		var onHeadLoc = AccessTools.Field(compilerGenStructType, "onHeadLoc");
+	public static CodeInstructions PawnRenderer_DrawHeadHair_DrawApparel_Transpiler(CodeInstructions instructions, MethodBase original)
+	{
+		var compilerGenStructType
+			= typeof(PawnRenderer).GetNestedTypes(AccessTools.all).Where(type
+				=> AccessTools.Field(type, "headFacing") is { } headFacingField
+				&& headFacingField.FieldType == typeof(Rot4)
+				&& AccessTools.Field(type, "onHeadLoc") is { } onHeadLocField
+				&& onHeadLocField.FieldType == typeof(Vector3)
+				&& type.HasAttribute<CompilerGeneratedAttribute>())
+			.First();
 
-		for (var i = 0; i < codes.Count; i++)
+		var apparelRecord = FishTranspiler.FirstArgument(original, typeof(ApparelGraphicRecord));
+
+		var headFacing = FishTranspiler.Field(compilerGenStructType, "headFacing");
+
+		var compilerGenArg
+			= FishTranspiler.FirstArgument(original,
+			 compilerGenStructType.IsValueType ? compilerGenStructType.MakeByRefType() : compilerGenStructType);
+
+		var onHeadLoc = FishTranspiler.Field(compilerGenStructType, "onHeadLoc");
+
+		try
 		{
-			if (codes[i].CallReturns(typeof(Mesh)) && codes[i + 1].IsStloc())
-			{
-				yield return codes[i];
-				yield return new(compilerGenArg.OpCode, compilerGenArg.Operand);
-				yield return new(Ldfld, headFacing);
-				yield return new(apparelRecord.OpCode, apparelRecord.Operand);
-				yield return new(Call, typeof(OversizedApparel).GetMethod(nameof(ChangeMeshSize)));
-				meshSuccess = true;
-			}
-			else if ((codes[i].CallReturns(typeof(Vector3)) && codes[i + 1].IsStloc()) || codes[i].LoadsField(onHeadLoc))
-			{
-				yield return codes[i];
-				yield return new(apparelRecord.OpCode, apparelRecord.Operand);
-				yield return new(compilerGenArg.OpCode, compilerGenArg.Operand);
-				yield return new(Ldfld, headFacing);
-				yield return new(Call, typeof(OversizedApparel).GetMethod(nameof(GetDrawOffset)));
-				yield return new(Call, AccessTools.Method(typeof(Vector3), "op_Addition"));
-				offsetSuccess = true;
-			}
-			else
-			{
-				yield return codes[i];
-			}
+			return instructions
+				.ReplaceAt((codes, i)
+					=> codes[i].CallReturns(typeof(Mesh))
+					&& codes[i + 1].IsStloc(),
+				code => new[]
+					{
+					code,
+					compilerGenArg,
+					headFacing,
+					apparelRecord,
+					FishTranspiler.Call(ChangeMeshSize)
+					})
+				.ReplaceAt((codes, i)
+					=> (codes[i].CallReturns(typeof(Vector3))
+					&& codes[i + 1].IsStloc()) || CompareInstructions(codes[i], onHeadLoc),
+				code => new[]
+					{
+					code,
+					apparelRecord,
+					compilerGenArg,
+					headFacing,
+					FishTranspiler.Call(GetDrawOffset),
+					FishTranspiler.Call(typeof(Vector3), "op_Addition")
+					});
 		}
-
-		if (!meshSuccess || !offsetSuccess)
+		catch
+		{
 			Log.Error("Oversized Apparel failed to patch PawnRenderer.DrawHeadHair. This is likely an incompatibility with another mod. Hugslib (opened by pressing F12) could reveal which other mod is patching this same method.");
+			return null!;
+		}
 	}
 
-	public static IEnumerable<CodeInstruction> PawnRenderer_DrawBodyApparel_Transpiler(IEnumerable<CodeInstruction> instructions, MethodBase original)
+	public static CodeInstructions PawnRenderer_DrawBodyApparel_Transpiler(CodeInstructions instructions, MethodBase original)
 	{
 		var codes = instructions.ToList();
-		var meshSuccess = false;
-		var offsetSuccess = false;
 
-		var mesh = FirstLdarg(original, typeof(Mesh));
-		var rot4 = FirstLdarg(original, typeof(Rot4));
-		var shellLoc = FirstLdarg(original, p => p.ParameterType == typeof(Vector3) && p.Name == "shellLoc");
-		var apparelRecord = GetLdloc(GetLocalOperands(codes, c => c.CallReturns(typeof(ApparelGraphicRecord))).First());
+		var mesh = FishTranspiler.FirstArgument(original, typeof(Mesh));
+		var rot4 = FishTranspiler.FirstArgument(original, typeof(Rot4));
+		var shellLoc = FishTranspiler.FirstArgument(original, p => p.ParameterType == typeof(Vector3) && p.Name == "shellLoc");
+		var apparelRecord = FishTranspiler.LocalVariable(FishTranspiler.GetLocalOperandsOrIndices(codes, c => c.CallReturns(typeof(ApparelGraphicRecord))).First());
 
-		for (var i = 0; i < codes.Count; i++)
+		try
 		{
-			if (codes[i].opcode == shellLoc.OpCode && codes[i].operand == shellLoc.Operand && codes[i + 1].IsStloc())
-			{
-				yield return codes[i];
-				yield return new(apparelRecord.OpCode, apparelRecord.Operand);
-				yield return new(rot4.OpCode, rot4.Operand);
-				yield return new(Call, typeof(OversizedApparel).GetMethod(nameof(GetDrawOffset)));
-				yield return new(Call, AccessTools.Method(typeof(Vector3), "op_Addition"));
-				offsetSuccess = true;
-			}
-			else if (codes[i].opcode == mesh.OpCode && codes[i].operand == mesh.Operand)
-			{
-				yield return codes[i];
-				yield return new(rot4.OpCode, rot4.Operand);
-				yield return new(apparelRecord.OpCode, apparelRecord.Operand);
-				yield return new(Call, typeof(OversizedApparel).GetMethod(nameof(ChangeMeshSize)));
-				meshSuccess = true; //should get inserted in multiple places, but only errors when all insertions fail anyway
-			}
-			else
-			{
-				yield return codes[i];
-			}
+			return codes
+				.ReplaceAt((codes, i)
+					=> CompareInstructions(codes[i], shellLoc)
+					&& codes[i + 1].IsStloc(),
+				code => new[]
+					{
+					code,
+					apparelRecord,
+					rot4,
+					FishTranspiler.Call(GetDrawOffset),
+					FishTranspiler.Call(typeof(Vector3), "op_Addition")
+					})
+				.Replace(code => CompareInstructions(code, mesh),
+				code => new[]
+					{
+					code,
+					rot4,
+					apparelRecord,
+					FishTranspiler.Call(ChangeMeshSize)
+					});
 		}
-
-		if (!meshSuccess || !offsetSuccess)
+		catch
+		{
 			Log.Error("Oversized Apparel failed to patch PawnRenderer.DrawBodyApparel. This is likely an incompatibility with another mod. Hugslib (opened by pressing F12) could reveal which other mod is patching this same method.");
+			return null!;
+		}
 	}
 
-	public static IEnumerable<CodeInstruction> CombatExtended_PawnRenderer_DrawHeadHair_DrawApparel_Transpiler(IEnumerable<CodeInstruction> instructions, MethodBase original)
+	private static bool CompareOperands(object? lhs, object? rhs)
+		=> lhs.TryGetIndex() is int lhIndex && rhs.TryGetIndex() is int rhIndex
+		? lhIndex == rhIndex
+		: lhs == rhs;
+
+	private static int? TryGetIndex(this object? obj)
+		=> obj is LocalVariableInfo info ? info.LocalIndex
+		: obj is not string and IConvertible convertible ? convertible.ToInt32(CultureInfo.InvariantCulture)
+		: null;
+
+	[Obsolete("Use == instead, once possible")]
+	private static bool CompareInstructions(CodeInstruction code, FishTranspiler.Container helper) // temporary workaround for a bug in fishery
+		=> helper.OpCode == code.opcode
+		&& CompareOperands(helper.Operand, code.operand);
+
+	public static CodeInstructions CombatExtended_PawnRenderer_DrawHeadHair_DrawApparel_Transpiler(CodeInstructions instructions, MethodBase original)
 	{
 		var codes = instructions.ToList();
-		var meshSuccess = false;
-		var offsetSuccess = false;
 
-		var vector3VarIndices = GetLocalOperands(codes, c => c.Calls(AccessTools.Method(typeof(Vector3), "op_Addition"))).ToArray();
+		var vector3VarIndices = FishTranspiler.GetLocalOperandsOrIndices(codes, c => c.Calls(AccessTools.Method(typeof(Vector3), "op_Addition"))).ToArray();
 
-		var mesh = FirstLdloc(codes, typeof(Mesh));
-		var headWearPos = GetLdloc(vector3VarIndices[0]);
-		var maskLoc = GetLdloc(vector3VarIndices[1]);
-		var apparelRecord = FirstLdloc(codes, typeof(ApparelGraphicRecord));
-		var headFacing = FirstLdarg(original, p => p.ParameterType == typeof(Rot4) && p.Name == "headFacing");
+		var mesh = FishTranspiler.FirstLocalVariable(codes, typeof(Mesh));
+		var headWearPos = FishTranspiler.LocalVariable(vector3VarIndices[0]);
+		var maskLoc = FishTranspiler.LocalVariable(vector3VarIndices[1]);
+		var apparelRecord = FishTranspiler.FirstLocalVariable(codes, typeof(ApparelGraphicRecord));
+		var headFacing = FishTranspiler.Argument(original, "headFacing");
 
-		for (var i = 0; i < codes.Count; i++)
+		try
 		{
-			if (codes[i].opcode == mesh.OpCode && codes[i].operand == mesh.Operand)
-			{
-				yield return codes[i];
-				yield return new(headFacing.OpCode, headFacing.Operand);
-				yield return new(apparelRecord.OpCode, apparelRecord.Operand);
-				yield return new(Call, typeof(OversizedApparel).GetMethod(nameof(ChangeMeshSize)));
-				meshSuccess = true;
-			}
-			else if ((codes[i].opcode == headWearPos.OpCode && codes[i].operand == headWearPos.Operand) || (codes[i].opcode == maskLoc.OpCode && codes[i].operand == maskLoc.Operand))
-			{
-				yield return codes[i];
-				yield return new(apparelRecord.OpCode, apparelRecord.Operand);
-				yield return new(headFacing.OpCode, headFacing.Operand);
-				yield return new(Call, typeof(OversizedApparel).GetMethod(nameof(GetDrawOffset)));
-				yield return new(Call, AccessTools.Method(typeof(Vector3), "op_Addition"));
-				offsetSuccess = true;
-			}
-			else
-			{
-				yield return codes[i];
-			}
-		}
+			return codes
+				.Replace(code => CompareInstructions(code, mesh),
+				code => new[]
+					{
+					code,
+					headFacing,
+					apparelRecord,
+					FishTranspiler.Call(ChangeMeshSize)
+					})
+				.Replace(code
+					=> CompareInstructions(code, headWearPos) || CompareInstructions(code, maskLoc),
+				code => new[]
+					{
+					code,
+					apparelRecord,
+					headFacing,
+					FishTranspiler.Call(GetDrawOffset),
+					FishTranspiler.Call(typeof(Vector3), "op_Addition")
+					});
 
-		if (!meshSuccess || !offsetSuccess)
-			Log.Error("Oversized Apparel failed to patch Combat Extended's Harmony_PawnRenderer_DrawHeadHair.DrawHeadApparel. This is CE's fault.");
+		}
+		catch (Exception ex)
+		{
+			Log.Error($"Oversized Apparel failed to patch Combat Extended's Harmony_PawnRenderer_DrawHeadHair.DrawHeadApparel. This is CE's fault.\n{ex}");
+			return null!;
+		}
 	}
 
 	public static bool ShouldSkipCache(PawnRenderer instance)
@@ -191,13 +232,14 @@ public static class OversizedApparel
 		var graphics = instance.graphics.apparelGraphics;
 		for (var i = 0; i < graphics.Count; i++)
 		{
-			if (graphics[i].sourceApparel.def.GetModExtension<Extension>() is { } extension && extension.drawSize is var size && (size.x > 1 || size.y > 1))
+			if (graphics[i].sourceApparel.def.GetModExtension<Extension>() is { } extension && extension.drawSize is var size && (size.x >= 1 || size.y >= 1))
 				return true;
 		}
 		return false;
 	}
 
-	public static Vector3 GetDrawOffset(ApparelGraphicRecord apparelRecord, Rot4 rot) => apparelRecord.sourceApparel.def.graphicData.DrawOffsetForRot(rot); //taking this directly from graphic instead of the def doesn't work for some reason
+	public static Vector3 GetDrawOffset(ApparelGraphicRecord apparelRecord, Rot4 rot)
+		=> apparelRecord.sourceApparel.def.graphicData.DrawOffsetForRot(rot); //taking this directly from graphic instead of the def doesn't work for some reason
 
 	public static Mesh ChangeMeshSize(Mesh mesh, Rot4 rot4, ApparelGraphicRecord apparelRecord)
 	{

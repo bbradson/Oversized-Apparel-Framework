@@ -7,14 +7,14 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OversizedApparel", "Oversiz
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug|Any CPU = Debug|Any CPU
-		Release|Any CPU = Release|Any CPU
+		v1.3|Any CPU = v1.3|Any CPU
+		v1.4|Any CPU = v1.4|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{6083D063-1731-4378-A525-F7C7A63D6DA4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{6083D063-1731-4378-A525-F7C7A63D6DA4}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{6083D063-1731-4378-A525-F7C7A63D6DA4}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{6083D063-1731-4378-A525-F7C7A63D6DA4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6083D063-1731-4378-A525-F7C7A63D6DA4}.v1.3|Any CPU.ActiveCfg = v1.3|Any CPU
+		{6083D063-1731-4378-A525-F7C7A63D6DA4}.v1.3|Any CPU.Build.0 = v1.3|Any CPU
+		{6083D063-1731-4378-A525-F7C7A63D6DA4}.v1.4|Any CPU.ActiveCfg = v1.4|Any CPU
+		{6083D063-1731-4378-A525-F7C7A63D6DA4}.v1.4|Any CPU.Build.0 = v1.4|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
