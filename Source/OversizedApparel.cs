@@ -53,7 +53,7 @@ public static class OversizedApparel
 		{
 			Harmony.Patch(
 				AccessTools.FindIncludingInnerTypes(ceType, t => AccessTools.Method(t, "DrawHeadApparel")),
-				transpiler: new(methodof(CombatExtended_PawnRenderer_DrawHeadHair_DrawApparel_Transpiler), Priority.Last, debug: true));
+				transpiler: new(methodof(CombatExtended_PawnRenderer_DrawHeadHair_DrawApparel_Transpiler), Priority.Last));
 		}
 	}
 
@@ -173,7 +173,9 @@ public static class OversizedApparel
 	private static bool CompareOperands(object? lhs, object? rhs)
 		=> lhs.TryGetIndex() is int lhIndex && rhs.TryGetIndex() is int rhIndex
 		? lhIndex == rhIndex
-		: lhs == rhs;
+		: lhs is null
+		? rhs is null
+		: lhs.Equals(rhs);
 
 	private static int? TryGetIndex(this object? obj)
 		=> obj is LocalVariableInfo info ? info.LocalIndex
